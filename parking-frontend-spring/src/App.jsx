@@ -16,8 +16,8 @@ export default function App(){
     <div>
       <div className='header'>Estacionamiento</div>
       <Routes>
-        <Route path='/login' element={<Login/>} />
-        <Route path='/' element={<Dashboard/>} />
+        <Route path='/' element={<Login/>} />
+        <Route path='/menu' element={<Dashboard/>} />
         <Route path='/historial' element={<History/>} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>

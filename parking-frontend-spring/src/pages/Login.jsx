@@ -21,7 +21,7 @@ export default function Login(){
       if (res === null) {
         setErr('Usuario o contraseña inválidos');
       } else {
-        nav('/');
+        nav('/menu');
       }
     })
     .catch(() => setErr('Error al conectar con el servidor'));

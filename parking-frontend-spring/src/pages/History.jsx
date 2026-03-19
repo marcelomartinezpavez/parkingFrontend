@@ -246,7 +246,7 @@ const getBadgeLabel = (v) => {
         </table>
       </div>
       <div className='footer'>
-        <a className='link' href='/'>&larr; Volver</a>
+        <a className='link' href='/menu'>&larr; Volver</a>
       </div>
     </div>
   );

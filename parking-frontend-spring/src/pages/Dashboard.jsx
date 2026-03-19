@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { enter, config, occupancy, exit, logout, actualizarPago } from '../api.js'
 import Snackbar from '@mui/material/Snackbar';
 import MuiAlert from '@mui/material/Alert';
+import PrinterButton from "../components/PrinterButton";
 
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -239,6 +240,14 @@ export default function Dashboard(){
   }
 };
 
+const handlePrint = async () => {
+  await fetch("http://localhost:3001/print", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ patente: "ABC123", minutos: 45, total: 2500 })
+  });
+};
+
   return (
     <div className='center-card'>
       <div className='dashboard-hero'>
@@ -309,7 +318,13 @@ export default function Dashboard(){
           {snackMsg}
         </Alert>
       </Snackbar>
-
+      {/*      
+      // Dentro del return de tu componente
+      <div style={{ marginTop: 20 }}>
+        <PrinterButton />
+      </div>
+      */}
     </div>
+    
   )
 }
