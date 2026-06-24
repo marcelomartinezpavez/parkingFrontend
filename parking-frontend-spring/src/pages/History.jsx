@@ -90,7 +90,8 @@ const getBadgeLabel = (v) => {
           <td>
             <button
               className='button'
-              disabled={isLoading}
+              disabled={isLoading || v.status === 'COBRADO'}
+              title={v.status === 'COBRADO' ? 'No se puede borrar un vehículo ya cobrado' : ''}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!window.confirm(`¿Estás seguro de borrar la patente ${v.plate}?`)) return;

@@ -129,19 +129,23 @@ export default function Dashboard(){
       setMsgExit(null);
       const res = await enter(plateIn);
       if (res.status === 200) {
-        setMsgEnter(res.data);
+        const data = res.data;
+        const patente = data?.patente || plateIn;
+        const fechaIngreso = data?.fechaIngreso || new Date().toISOString();
+        setMsgEnter(`Vehículo ${patente} ingresado correctamente`);
         setMsgEnterType('success');
         setTimeout(() => {
           setMsgEnter(null);
         }, 10000); // 10 segundos
 
+        printTicket(patente, fechaIngreso, state.ratePerMinute);
         showSnackbar(`Vehículo ingresado`)
         setPlateIn('');
 
         const occRes = await occupancy();
-        const data = occRes?.data;
-        if (Array.isArray(data) && data.length > 0) {
-          const firstItem = data[0];
+        const occData = occRes?.data;
+        if (Array.isArray(occData) && occData.length > 0) {
+          const firstItem = occData[0];
           const libres = Number(firstItem?.cantidadLibre);
           const ocupados = Number(firstItem?.cantidadOcupado);
           if (!isNaN(libres) && !isNaN(ocupados)) {
@@ -185,6 +189,14 @@ export default function Dashboard(){
         setMsgExit(`Salida ${plateOut} registrada. Estacionado ${minutos} minutos. Total a pagar: $${total}. Realiza el pago.`);
         setMsgExitType('success');
         showSnackbar(`Salida ${plateOut} registrada. Estacionado ${minutos} minutos. Total a pagar: $${total}. Realiza el pago.`);
+        printExitTicket(
+          res.data.patente || plateOut,
+          res.data.fechaIngreso,
+          res.data.fechaSalida,
+          minutos,
+          state.ratePerMinute,
+          total
+        );
         setPendingPaymentId(res.data.id);
         setPendingPlate(plateOut);
         // Actualizar ocupación después de sacar
@@ -240,12 +252,98 @@ export default function Dashboard(){
   }
 };
 
-const handlePrint = async () => {
-  await fetch("http://localhost:3001/print", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ patente: "ABC123", minutos: 45, total: 2500 })
-  });
+const printTicket = (patente, fechaIngreso, valorMinuto) => {
+  const fecha = new Date(fechaIngreso);
+  const fechaStr = fecha.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const horaStr = fecha.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const win = window.open('', '_blank', 'width=320,height=480');
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket de Ingreso</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; width: 280px; padding: 16px; font-size: 13px; }
+    .center { text-align: center; }
+    .title { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+    .subtitle { font-size: 11px; margin-bottom: 12px; color: #555; }
+    hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+    .row { display: flex; justify-content: space-between; margin: 5px 0; }
+    .label { font-weight: bold; }
+    .patente { font-size: 22px; font-weight: bold; letter-spacing: 3px; text-align: center; margin: 10px 0; border: 2px solid #000; padding: 6px; }
+    .footer { font-size: 10px; text-align: center; margin-top: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <div class="title">ESTACIONAMIENTO</div>
+    <div class="subtitle">TICKET DE INGRESO</div>
+  </div>
+  <hr>
+  <div class="patente">${patente}</div>
+  <hr>
+  <div class="row"><span class="label">Fecha:</span><span>${fechaStr}</span></div>
+  <div class="row"><span class="label">Hora ingreso:</span><span>${horaStr}</span></div>
+  <div class="row"><span class="label">Valor por minuto:</span><span>$${valorMinuto}</span></div>
+  <hr>
+  <div class="footer">Conserve este ticket<br>Gracias por su preferencia</div>
+</body>
+</html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); win.close(); }, 250);
+};
+
+const printExitTicket = (patente, fechaIngreso, fechaSalida, minutos, valorMinuto, total) => {
+  const fmtFecha = (iso) => new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const fmtHora = (iso) => new Date(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const win = window.open('', '_blank', 'width=320,height=560');
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket de Salida</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; width: 280px; padding: 16px; font-size: 13px; }
+    .center { text-align: center; }
+    .title { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+    .subtitle { font-size: 11px; margin-bottom: 12px; color: #555; }
+    hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+    .row { display: flex; justify-content: space-between; margin: 5px 0; }
+    .label { font-weight: bold; }
+    .patente { font-size: 22px; font-weight: bold; letter-spacing: 3px; text-align: center; margin: 10px 0; border: 2px solid #000; padding: 6px; }
+    .total { font-size: 18px; font-weight: bold; text-align: center; margin: 10px 0; }
+    .footer { font-size: 10px; text-align: center; margin-top: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <div class="title">ESTACIONAMIENTO</div>
+    <div class="subtitle">TICKET DE SALIDA</div>
+  </div>
+  <hr>
+  <div class="patente">${patente}</div>
+  <hr>
+  <div class="row"><span class="label">Fecha ingreso:</span><span>${fmtFecha(fechaIngreso)}</span></div>
+  <div class="row"><span class="label">Hora ingreso:</span><span>${fmtHora(fechaIngreso)}</span></div>
+  <div class="row"><span class="label">Fecha salida:</span><span>${fmtFecha(fechaSalida)}</span></div>
+  <div class="row"><span class="label">Hora salida:</span><span>${fmtHora(fechaSalida)}</span></div>
+  <hr>
+  <div class="row"><span class="label">Tiempo:</span><span>${minutos} minutos</span></div>
+  <div class="row"><span class="label">Valor por minuto:</span><span>$${valorMinuto}</span></div>
+  <hr>
+  <div class="total">TOTAL: $${total}</div>
+  <hr>
+  <div class="footer">Gracias por su preferencia</div>
+</body>
+</html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); win.close(); }, 250);
 };
 
   return (
