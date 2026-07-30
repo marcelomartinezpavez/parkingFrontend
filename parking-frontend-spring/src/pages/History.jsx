@@ -12,7 +12,7 @@ export default function History() {
   const [successMsg, setSuccessMsg] = useState('');
   const [resumen, setResumen] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(30);
 
 
   const paginatedRows = rows.slice(
@@ -154,7 +154,7 @@ const getBadgeLabel = (v) => {
         </div>
       )}
 
-      <details open>
+      <details>
   <summary><strong>Resumen financiero ({from} - {to})</strong></summary>
   {resumen ? (
     <div className='summary-cards'>
@@ -202,11 +202,9 @@ const getBadgeLabel = (v) => {
     }}
     style={{ marginLeft: 8 }}
   >
-    <option value={5}>5</option>
-    <option value={10}>10</option>
-    <option value={20}>20</option>
-    <option value={50}>50</option>
-    <option value={100}>100</option>
+    <option value={30}>30</option>
+    <option value={60}>60</option>
+    <option value={90}>90</option>
   </select>
   <span style={{ marginLeft: 8 }}>por página</span>
 </div>
@@ -247,7 +245,9 @@ const getBadgeLabel = (v) => {
         </table>
       </div>
       <div className='footer'>
-        <a className='link' href='/menu'>&larr; Volver</a>
+        <button className='button' style={{ fontSize:15, padding:'14px 28px', background:'#e6e6f7', color:'#2b2b2b', fontWeight:700, borderRadius:12, display:'flex', alignItems:'center', gap:8 }} onClick={() => window.location.href = '/menu'}>
+          ← Volver
+        </button>
       </div>
     </div>
   );

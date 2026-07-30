@@ -1,10 +1,9 @@
 
 import React, { useMemo, useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { enter, config, occupancy, exit, logout, actualizarPago } from '../api.js'
 import Snackbar from '@mui/material/Snackbar';
 import MuiAlert from '@mui/material/Alert';
-import PrinterButton from "../components/PrinterButton";
 
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -58,6 +57,8 @@ export default function Dashboard(){
   const [occ, setOcc] = useState({inCount:0, capacity:0});
   const [pendingPaymentId, setPendingPaymentId] = useState(null);
   const [pendingPlate, setPendingPlate] = useState('');
+  const [pendingEntryTicket, setPendingEntryTicket] = useState(null);
+  const [pendingExitTicket, setPendingExitTicket] = useState(null);
   const [snackOpen, setSnackOpen] = useState(false);
   const [snackMsg, setSnackMsg] = useState('');
   const [snackSeverity, setSnackSeverity] = useState('success'); // 'error', 'info', 'warning'
@@ -127,6 +128,8 @@ export default function Dashboard(){
   const handleEnter = async () => {
     try {
       setMsgExit(null);
+      setPendingEntryTicket(null);
+      setPendingExitTicket(null);
       const res = await enter(plateIn);
       if (res.status === 200) {
         const data = res.data;
@@ -138,7 +141,7 @@ export default function Dashboard(){
           setMsgEnter(null);
         }, 10000); // 10 segundos
 
-        printTicket(patente, fechaIngreso, state.ratePerMinute);
+        setPendingEntryTicket({ patente, fechaIngreso, valorMinuto: state.ratePerMinute });
         showSnackbar(`Vehículo ingresado`)
         setPlateIn('');
 
@@ -181,22 +184,24 @@ export default function Dashboard(){
   const handleExit = async () => {
     try {
       setMsgEnter(null);
+      setPendingExitTicket(null);
+      setPendingEntryTicket(null);
       const res = await exit(plateOut);
-      
+
       if (res.status === 200  && res.data?.id) {
         const minutos = res.data.minutosEstacionado;
         const total = res.data.valorTotal;
         setMsgExit(`Salida ${plateOut} registrada. Estacionado ${minutos} minutos. Total a pagar: $${total}. Realiza el pago.`);
         setMsgExitType('success');
         showSnackbar(`Salida ${plateOut} registrada. Estacionado ${minutos} minutos. Total a pagar: $${total}. Realiza el pago.`);
-        printExitTicket(
-          res.data.patente || plateOut,
-          res.data.fechaIngreso,
-          res.data.fechaSalida,
+        setPendingExitTicket({
+          patente: res.data.patente || plateOut,
+          fechaIngreso: res.data.fechaIngreso,
+          fechaSalida: res.data.fechaSalida,
           minutos,
-          state.ratePerMinute,
+          valorMinuto: state.ratePerMinute,
           total
-        );
+        });
         setPendingPaymentId(res.data.id);
         setPendingPlate(plateOut);
         // Actualizar ocupación después de sacar
@@ -348,6 +353,13 @@ const printExitTicket = (patente, fechaIngreso, fechaSalida, minutos, valorMinut
 
   return (
     <div className='center-card'>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20, background:'#4a5568', borderRadius:12, padding:'14px 20px' }}>
+        <div style={{ fontSize:22, fontWeight:800, color:'white', letterSpacing:1 }}>🅿 Estacionamiento</div>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <span style={{ color:'#e2e8f0', fontSize:14, fontFamily:'monospace' }}>👤 admin</span>
+          <button className='button' style={{ background:'#e74c3c', color:'white', fontWeight:700 }} onClick={()=>{ logout(); nav('/login') }}>Cerrar sesión</button>
+        </div>
+      </div>
       <div className='dashboard-hero'>
         <div style={{textAlign:'center', fontSize:22, fontWeight:700}}>El valor por minuto es: ${state.ratePerMinute ?? 0}</div>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
@@ -355,60 +367,57 @@ const printExitTicket = (patente, fechaIngreso, fechaSalida, minutos, valorMinut
           <div className='pie-center'>{occ.inCount} ocupados de {occ.capacity}</div>
         </div>
         <div className='row' style={{ justifyContent: 'center', width: '100%' }}>
-        <div className='panel mint'>
-          <div style={{fontSize:26, fontWeight:800, marginBottom:10}}>Ingresar vehículo</div>
+        <div className='panel mint panel-fixed'>
+          <div style={{fontSize:26, fontWeight:800, marginBottom:10}}>Ingresar vehículo <span style={{display:'inline-block', transform:'scaleX(-1)'}}>🚗</span>➡</div>
           <input className='input' placeholder='Patente' value={plateIn} onChange={e=>setPlateIn(e.target.value.toUpperCase())} />
           <div style={{marginTop:10}}><button className='button' onClick={handleEnter}>Ingresar</button></div>
           {msgEnter && (
-              <div
-                className={`card ${msgEnterType === 'success' ? 'success' : 'error'}`}
-                style={{ marginTop: 10 }}
-              >
-
-                <strong>Estado:</strong> {msgEnter}
-              </div>
-            )}
+            <div className={`card ${msgEnterType === 'success' ? 'success' : 'error'}`} style={{ marginTop: 10 }}>
+              <strong>Estado:</strong> {msgEnter}
+            </div>
+          )}
+          {pendingEntryTicket && (
+            <div style={{ marginTop: 10 }}>
+              <button className='button' onClick={() => printTicket(pendingEntryTicket.patente, pendingEntryTicket.fechaIngreso, pendingEntryTicket.valorMinuto)}>
+                🖨 Imprimir ticket de entrada
+              </button>
+            </div>
+          )}
 
         </div>
-        <div className='panel peach'>
-          <div style={{fontSize:26, fontWeight:800, marginBottom:10}}>Sacar vehículo</div>
+        <div className='panel peach panel-fixed'>
+          <div style={{fontSize:26, fontWeight:800, marginBottom:10}}>Sacar vehículo 🚗<span style={{display:'inline-block', transform:'scaleX(-1)'}}>➡</span></div>
           <input className='input' placeholder='Patente' value={plateOut} onChange={e=>setPlateOut(e.target.value.toUpperCase())} />
           <div style={{marginTop:10}}><button className='button' onClick={handleExit}>Sacar vehículo</button></div>
           {pendingPaymentId && (
             <div style={{ marginTop: 10 }}>
-              <div>Realizar pago:</div>
-              <button className='button' onClick={() => handlePaymentType('EFECTIVO')}>Realizar el Pago</button>
-              {/*<button className='button' onClick={() => handlePaymentType('DEBITO')}>Débito</button>
-              <button className='button' onClick={() => handlePaymentType('CREDITO')}>Crédito</button>
-              */}
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Seleccionar método de pago:</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className='button' onClick={() => handlePaymentType('EFECTIVO')}>💵 Efectivo</button>
+                <button className='button' onClick={() => handlePaymentType('DEBITO')}>🏦 Débito</button>
+                <button className='button' onClick={() => handlePaymentType('CREDITO')}>💳 Crédito</button>
+              </div>
+            </div>
+          )}
+          {pendingExitTicket && (
+            <div style={{ marginTop: 10 }}>
+              <button className='button' onClick={() => printExitTicket(pendingExitTicket.patente, pendingExitTicket.fechaIngreso, pendingExitTicket.fechaSalida, pendingExitTicket.minutos, pendingExitTicket.valorMinuto, pendingExitTicket.total)}>
+                🖨 Imprimir ticket de salida
+              </button>
             </div>
           )}
           {msgExit && (
-              <div
-                className={`card ${msgExitType === 'success' ? 'success' : 'error'}`}
-                style={{ marginTop: 10 }}
-              >
-                <strong>Estado:</strong> {msgExit}
-              </div>
-            )}
+            <div className={`card ${msgExitType === 'success' ? 'success' : 'error'}`} style={{ marginTop: 10 }}>
+              <strong>Estado:</strong> {msgExit}
+            </div>
+          )}
 
         </div>
         </div>
-        <div className='panel sand' style={{gridColumn:'1/4'}}>
-          <div className='topbar'>
-            <div><Link to='/historial' className='link'>Historial estacionados</Link></div>
-            <div className='row'>
-              <small className='mono'>Sesión: admin</small>
-              <button className='button' onClick={()=>{ logout(); nav('/login') }}>Cerrar sesión</button>
-            </div>
-          </div>
-
-          {/*msg && (
-            <div className='card success' style={{ marginTop: 10 }}>
-              <strong>Estado:</strong> {msg}
-            </div>
-          )*/}
-
+        <div className='panel sand' style={{ gridColumn:'1/4', display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>
+          <button className='button' style={{ fontSize:15, padding:'14px 28px', background:'#4a5568', color:'white', fontWeight:700, borderRadius:12, display:'flex', alignItems:'center', gap:8 }} onClick={() => nav('/historial')}>
+            📋 Historial estacionados
+          </button>
         </div>
       </div>
       <Snackbar open={snackOpen} autoHideDuration={4000} onClose={handleSnackClose}>
