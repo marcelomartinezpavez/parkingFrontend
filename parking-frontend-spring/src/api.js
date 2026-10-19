@@ -79,7 +79,7 @@ export const list = async (from, to, q = '') => {
       .filter(item =>
         (item.patente || '').toUpperCase().includes(q.toUpperCase())
       )
-     .map(item => ({
+      .map(item => ({
         id: item.id,
         plate: item.patente,
         status: item.estado,
@@ -87,7 +87,12 @@ export const list = async (from, to, q = '') => {
         outAt: item.fechaSalida,
         paid: item.valorTotal,
         method: item.tipoPago
-      }));
+      }))
+      .sort((a, b) => {
+        if (a.status === 'ESTACIONADO' && b.status !== 'ESTACIONADO') return -1;
+        if (a.status !== 'ESTACIONADO' && b.status === 'ESTACIONADO') return 1;
+        return new Date(b.inAt) - new Date(a.inAt);
+      });
       return{resumen, filtrados};
   } catch (error) {
     console.error('Error al obtener historial:', error);

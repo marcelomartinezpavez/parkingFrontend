@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { enter, config, occupancy, exit, logout, actualizarPago } from '../api.js'
 import Snackbar from '@mui/material/Snackbar';
 import MuiAlert from '@mui/material/Alert';
@@ -46,6 +46,8 @@ function Pie({ used, total }){
 }
 
 export default function Dashboard(){
+  const location = useLocation()
+  const exitPanelRef = React.useRef(null)
   const [plateIn, setPlateIn] = useState('')
   const [plateOut, setPlateOut] = useState('')
   const [msgEnter, setMsgEnter] = useState('')
@@ -57,12 +59,26 @@ export default function Dashboard(){
   const [occ, setOcc] = useState({inCount:0, capacity:0});
   const [pendingPaymentId, setPendingPaymentId] = useState(null);
   const [pendingPlate, setPendingPlate] = useState('');
+  const [loadingEnter, setLoadingEnter] = useState(false);
+  const [loadingExit, setLoadingExit] = useState(false);
   const [pendingEntryTicket, setPendingEntryTicket] = useState(null);
   const [pendingExitTicket, setPendingExitTicket] = useState(null);
   const [snackOpen, setSnackOpen] = useState(false);
   const [snackMsg, setSnackMsg] = useState('');
   const [snackSeverity, setSnackSeverity] = useState('success'); // 'error', 'info', 'warning'
 
+
+  useEffect(() => {
+    if (location.state?.plateOut) {
+      setPlateOut(location.state.plateOut);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (msgExit && exitPanelRef.current) {
+      exitPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [msgExit]);
 
   useEffect(() => {
     config().then(response => {
@@ -126,7 +142,9 @@ export default function Dashboard(){
   };
 
   const handleEnter = async () => {
+    if (loadingEnter) return;
     try {
+      setLoadingEnter(true);
       setMsgExit(null);
       setPendingEntryTicket(null);
       setPendingExitTicket(null);
@@ -137,11 +155,11 @@ export default function Dashboard(){
         const fechaIngreso = data?.fechaIngreso || new Date().toISOString();
         setMsgEnter(`Vehículo ${patente} ingresado correctamente`);
         setMsgEnterType('success');
+        setPendingEntryTicket({ patente, fechaIngreso, valorMinuto: state.ratePerMinute });
         setTimeout(() => {
           setMsgEnter(null);
-        }, 10000); // 10 segundos
-
-        setPendingEntryTicket({ patente, fechaIngreso, valorMinuto: state.ratePerMinute });
+          setPendingEntryTicket(null);
+        }, 20000);
         showSnackbar(`Vehículo ingresado`)
         setPlateIn('');
 
@@ -163,9 +181,9 @@ export default function Dashboard(){
         const msg = res.data?.mensaje || "Ocurrió un error al registrar";
         setMsgEnter(msg);
         setMsgEnterType('error');
-                setTimeout(() => {
+        setTimeout(() => {
           setMsgEnter(null);
-        }, 10000); // 10 segundos
+        }, 20000);
 
         showSnackbar(msg, 'error');
       }
@@ -175,14 +193,18 @@ export default function Dashboard(){
       setMsgEnterType('error');
       setTimeout(() => {
         setMsgEnter(null);
-      }, 10000); // 10 segundos
+      }, 20000);
 
       showSnackbar(msg, 'error');
+    } finally {
+      setLoadingEnter(false);
     }
   };
 
   const handleExit = async () => {
+    if (loadingExit) return;
     try {
+      setLoadingExit(true);
       setMsgEnter(null);
       setPendingExitTicket(null);
       setPendingEntryTicket(null);
@@ -191,9 +213,9 @@ export default function Dashboard(){
       if (res.status === 200  && res.data?.id) {
         const minutos = res.data.minutosEstacionado;
         const total = res.data.valorTotal;
-        setMsgExit(`Salida ${plateOut} registrada. Estacionado ${minutos} minutos. Total a pagar: $${total}. Realiza el pago.`);
+        setMsgExit(`Salida ${plateOut} registrada.\nEstacionado ${minutos} minutos.\nTotal a pagar: $${Number(total).toLocaleString('es-CL')}.\nRealiza el pago.`);
         setMsgExitType('success');
-        showSnackbar(`Salida ${plateOut} registrada. Estacionado ${minutos} minutos. Total a pagar: $${total}. Realiza el pago.`);
+        showSnackbar(`Salida ${plateOut} registrada. Estacionado ${minutos} minutos. Total a pagar: $${Number(total).toLocaleString('es-CL')}. Realiza el pago.`);
         setPendingExitTicket({
           patente: res.data.patente || plateOut,
           fechaIngreso: res.data.fechaIngreso,
@@ -232,6 +254,8 @@ export default function Dashboard(){
       setMsgExit(msg);
       setMsgExitType('error');
       showSnackbar(msg, 'error');
+    } finally {
+      setLoadingExit(false);
     }
   };
 
@@ -241,7 +265,7 @@ export default function Dashboard(){
     const res = await actualizarPago(pendingPaymentId, type);
 
     if (res.status === 200) {
-      setMsgExit(`Pago patente ${plateOut} registrado como ${type}`);
+      setMsgExit(`Pago patente ${plateOut}\nregistrado como ${type}`);
       setMsgExitType('success');
       setPendingPaymentId(null);
       setPendingPlate('');
@@ -361,16 +385,16 @@ const printExitTicket = (patente, fechaIngreso, fechaSalida, minutos, valorMinut
         </div>
       </div>
       <div className='dashboard-hero'>
-        <div style={{textAlign:'center', fontSize:22, fontWeight:700}}>El valor por minuto es: ${state.ratePerMinute ?? 0}</div>
+        <div style={{textAlign:'center', fontSize:22, fontWeight:700}}>El valor por minuto es: ${Number(state.ratePerMinute ?? 0).toLocaleString('es-CL')}</div>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
           <Pie used={occ.inCount} total={occ.capacity} />
           <div className='pie-center'>{occ.inCount} ocupados de {occ.capacity}</div>
         </div>
-        <div className='row' style={{ justifyContent: 'center', width: '100%' }}>
+        <div className='row' style={{ justifyContent: 'center', width: '100%', alignItems: 'flex-start' }}>
         <div className='panel mint panel-fixed'>
           <div style={{fontSize:26, fontWeight:800, marginBottom:10}}>Ingresar vehículo <span style={{display:'inline-block', transform:'scaleX(-1)'}}>🚗</span>➡</div>
           <input className='input' placeholder='Patente' value={plateIn} onChange={e=>setPlateIn(e.target.value.toUpperCase())} />
-          <div style={{marginTop:10}}><button className='button' onClick={handleEnter}>Ingresar</button></div>
+          <div style={{marginTop:10}}><button className='button' onClick={handleEnter} disabled={loadingEnter}>{loadingEnter ? '⏳ Ingresando...' : 'Ingresar'}</button></div>
           {msgEnter && (
             <div className={`card ${msgEnterType === 'success' ? 'success' : 'error'}`} style={{ marginTop: 10 }}>
               <strong>Estado:</strong> {msgEnter}
@@ -385,33 +409,44 @@ const printExitTicket = (patente, fechaIngreso, fechaSalida, minutos, valorMinut
           )}
 
         </div>
-        <div className='panel peach panel-fixed'>
+        <div className='panel peach panel-fixed' ref={exitPanelRef}>
           <div style={{fontSize:26, fontWeight:800, marginBottom:10}}>Sacar vehículo 🚗<span style={{display:'inline-block', transform:'scaleX(-1)'}}>➡</span></div>
           <input className='input' placeholder='Patente' value={plateOut} onChange={e=>setPlateOut(e.target.value.toUpperCase())} />
-          <div style={{marginTop:10}}><button className='button' onClick={handleExit}>Sacar vehículo</button></div>
-          {pendingPaymentId && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Seleccionar método de pago:</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button className='button' onClick={() => handlePaymentType('EFECTIVO')}>💵 Efectivo</button>
-                <button className='button' onClick={() => handlePaymentType('DEBITO')}>🏦 Débito</button>
-                <button className='button' onClick={() => handlePaymentType('CREDITO')}>💳 Crédito</button>
+          <div style={{marginTop:10, display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
+            <button className='button' onClick={handleExit} disabled={loadingExit}>{loadingExit ? '⏳ Procesando...' : 'Sacar vehículo'}</button>
+            {(msgExit || pendingPaymentId || pendingExitTicket) && (
+              <button className='button' style={{ background:'#e0e0e0' }} onClick={() => {
+                setMsgExit(null);
+                setPendingPaymentId(null);
+                setPendingExitTicket(null);
+                setPlateOut('');
+              }}>🧹 Limpiar</button>
+            )}
+          </div>
+          <div style={{ minHeight: 180 }}>
+            {msgExit && (
+              <div className={`card ${msgExitType === 'success' ? 'success' : 'error'}`} style={{ marginTop: 10, whiteSpace: 'pre-line', animation: 'none', wordBreak: 'break-word', maxWidth: '100%' }}>
+                <strong>Estado:</strong> {msgExit}
               </div>
-            </div>
-          )}
-          {pendingExitTicket && (
-            <div style={{ marginTop: 10 }}>
-              <button className='button' onClick={() => printExitTicket(pendingExitTicket.patente, pendingExitTicket.fechaIngreso, pendingExitTicket.fechaSalida, pendingExitTicket.minutos, pendingExitTicket.valorMinuto, pendingExitTicket.total)}>
-                🖨 Imprimir ticket de salida
-              </button>
-            </div>
-          )}
-          {msgExit && (
-            <div className={`card ${msgExitType === 'success' ? 'success' : 'error'}`} style={{ marginTop: 10 }}>
-              <strong>Estado:</strong> {msgExit}
-            </div>
-          )}
-
+            )}
+            {pendingPaymentId && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Seleccionar método de pago:</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className='button' onClick={() => handlePaymentType('EFECTIVO')}>💵 Efectivo</button>
+                  <button className='button' onClick={() => handlePaymentType('DEBITO')}>🏦 Débito</button>
+                  <button className='button' onClick={() => handlePaymentType('CREDITO')}>💳 Crédito</button>
+                </div>
+              </div>
+            )}
+            {pendingExitTicket && (
+              <div style={{ marginTop: 10 }}>
+                <button className='button' onClick={() => printExitTicket(pendingExitTicket.patente, pendingExitTicket.fechaIngreso, pendingExitTicket.fechaSalida, pendingExitTicket.minutos, pendingExitTicket.valorMinuto, pendingExitTicket.total)}>
+                  🖨 Imprimir ticket de salida
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         </div>
         <div className='panel sand' style={{ gridColumn:'1/4', display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>

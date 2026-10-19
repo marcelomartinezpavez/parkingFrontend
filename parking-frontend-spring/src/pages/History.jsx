@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { list, del } from '../api.js';
 
 export default function History() {
+  const nav = useNavigate();
   const [rows, setRows] = useState([]);
   const [from, setFrom] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [to, setTo] = useState(() => format(new Date(), 'yyyy-MM-dd'));
@@ -58,9 +60,9 @@ const getBadgeLabel = (v) => {
     case 'BORRADO':
       return 'Borrado';
     case 'SALIDA':
-      return `Salida - $${v.paid} - ${v.method }`;
+      return `Salida - $${Number(v.paid).toLocaleString('es-CL')} - ${v.method }`;
     case 'COBRADO':
-      return `Cobrado - $${v.paid} - ${v.method }`;
+      return `Cobrado - $${Number(v.paid).toLocaleString('es-CL')} - ${v.method }`;
     case 'ESTACIONADO':
       return 'Estacionado';
     default:
@@ -87,11 +89,23 @@ const getBadgeLabel = (v) => {
           </td>
           <td>{format(new Date(v.inAt), 'dd-MM-yyyy HH:mm:ss')}</td>
           
-          <td>
+          <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {v.status === 'ESTACIONADO' && (
+              <button
+                className='button'
+                style={{ background: '#fde0c9', fontWeight: 700 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  nav('/menu', { state: { plateOut: v.plate } });
+                }}
+              >
+                🚗 Sacar
+              </button>
+            )}
             <button
               className='button'
-              disabled={isLoading || v.status === 'COBRADO'}
-              title={v.status === 'COBRADO' ? 'No se puede borrar un vehículo ya cobrado' : ''}
+              disabled={isLoading || v.status !== 'ESTACIONADO'}
+              title={v.status !== 'ESTACIONADO' ? 'Solo se puede borrar un vehículo estacionado' : ''}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!window.confirm(`¿Estás seguro de borrar la patente ${v.plate}?`)) return;
@@ -111,8 +125,6 @@ const getBadgeLabel = (v) => {
             >
               {isLoading ? '⏳ Borrando...' : '🗑 Borrar'}
             </button>
-
-
           </td>
         </tr>
         {isExpanded && (
@@ -120,9 +132,9 @@ const getBadgeLabel = (v) => {
             <td colSpan='8'>
               <div style={{ padding: 10 }}>
                 <div>Fecha Ingreso: {format(new Date(v.inAt), 'dd-MM-yyyy, HH:mm:ss')}</div>
-                <div>Fecha Salida: {v.outAt ? format(new Date(v.outAt), 'dd-MM-yyyy, HH:mm:ss') : '-'}</div>
+                <div>{v.status === 'BORRADO' ? 'Fecha de borrado' : 'Fecha Salida'}: {v.outAt ? format(new Date(v.outAt), 'dd-MM-yyyy, HH:mm:ss') : '-'}</div>
                 <div>Minutos estacionado: {minutes ?? '-'}</div>
-                <div>Valor Total: ${v.paid ?? 0}</div>
+                <div>Valor Total: ${Number(v.paid ?? 0).toLocaleString('es-CL')}</div>
                 <div>Tipo de pago: {v.method || '-'}</div>
               </div>
             </td>
@@ -160,27 +172,27 @@ const getBadgeLabel = (v) => {
     <div className='summary-cards'>
       <div className='card-summary card-total'>
         💰 Total Recaudado<br />
-        ${resumen.totalRecaudado.toLocaleString()}<br />
+        ${Number(resumen.totalRecaudado).toLocaleString('es-CL')}<br />
         ({resumen.totalTransacciones} transacciones)
       </div>
       <div className='card-summary card-tarjeta'>
         💳 Total Tarjeta<br />
-        ${resumen.totalTarjeta.toLocaleString()}<br />
+        ${Number(resumen.totalTarjeta).toLocaleString('es-CL')}<br />
         ({resumen.transaccionesTarjeta} transacciones)
       </div>
       <div className='card-summary card-debito'>
         🏦 Débito<br />
-        ${resumen.totalDebito.toLocaleString()}<br />
+        ${Number(resumen.totalDebito).toLocaleString('es-CL')}<br />
         ({resumen.transaccionesDebito} transacciones)
       </div>
       <div className='card-summary card-credito'>
         💳 Crédito<br />
-        ${resumen.totalCredito.toLocaleString()}<br />
+        ${Number(resumen.totalCredito).toLocaleString('es-CL')}<br />
         ({resumen.transaccionesCredito} transacciones)
       </div>
       <div className='card-summary card-efectivo'>
         💵 Efectivo<br />
-        ${(resumen.totalRecaudado - resumen.totalTarjeta).toLocaleString()}<br />
+        ${(Number(resumen.totalRecaudado) - Number(resumen.totalTarjeta)).toLocaleString('es-CL')}<br />
         ({resumen.transaccionesEfectivo} transacciones)
       </div>
     </div>
