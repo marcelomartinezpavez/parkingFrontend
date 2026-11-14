@@ -1,9 +1,11 @@
 import axios from 'axios';
 
 //const API_BASE = import.meta.env.VITE_API_BASE || 'http://186.64.113.173:8080/api';
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080/api';
+//const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080/api';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://parkingbackend-m6o8.onrender.com/api';
 //const API_URL = 'http://186.64.113.173:8080/api';
-const API_URL = 'http://localhost:8080/api';
+//const API_URL = 'http://localhost:8080/api';
+const API_URL = 'https://parkingbackend-m6o8.onrender.com/api';
 function getToken(){ return localStorage.getItem('token') || ''; }
 function setToken(t){ localStorage.setItem('token', t); }
 export function logout(){ localStorage.removeItem('token'); }
